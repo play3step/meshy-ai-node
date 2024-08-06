@@ -8,8 +8,13 @@ const connection = mysql.createConnection({
   database: process.env.DB_NAME,
 });
 
-module.exports = connection;
-
-connection.query("SELECT * FROM Models", (err, result) => {
-  console.log(result);
+connection.connect((err) => {
+  if (err) {
+    console.error("Error connecting to the database:", err);
+    process.exit(1); // 연결 실패 시 애플리케이션 종료
+  } else {
+    console.log("Connected to the database");
+  }
 });
+
+module.exports = connection;
