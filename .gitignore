@@ -1,0 +1,26 @@
+# Node.js 
+node_modules/ 
+
+# 로그 
+로그 
+*.log 
+npm-debug.log* 
+
+# 종속성 디렉터리 
+pid 
+로그 
+*.pid 
+*.seed 
+*.pid.lock 
+
+# 선택 사항 npm 캐시 디렉터리 
+.npm 
+
+# 선택 사항 eslint 캐시 
+.eslintcache 
+
+# 선택 사항 REPL 기록 
+.node_repl_history 
+
+# 환경 변수 
+.env*
