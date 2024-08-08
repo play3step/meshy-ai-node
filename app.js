@@ -103,6 +103,33 @@ app.post("/meshy/text-to-3d", async (req, res) => {
   }
 });
 
+app.get("/meshy/objects/:userId", async (req, res) => {
+  const { userId } = req.params;
+  try {
+    conn.query(
+      "SELECT * FROM Models WHERE user_id = ?",
+      [userId],
+      (err, results) => {
+        if (err) {
+          console.error("Error fetching user models from database:", err);
+          return res
+            .status(500)
+            .json({ error: "Error fetching user models from database" });
+        }
+        // 모델 정보를 JSON 객체로 변환하여 반환
+        const models = results.map((model) => ({
+          ...model,
+          model_urls: JSON.parse(model.model_urls),
+        }));
+        res.status(200).json(models);
+      }
+    );
+  } catch (error) {
+    console.error("Error:", error.message);
+    res.status(500).json({ error: "Error fetching user models" });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
