@@ -164,6 +164,97 @@ app.post("/meshy/text-to-3d", async (req, res) => {
   }
 });
 
+app.post("/meshy/image-to-3d", async (req, res) => {
+  const { imgUrl, userId } = req.body;
+  console.log(`Received request with prompt: ${prompt}`);
+
+  // 클라이언트에게 초기 응답을 보냅니다.
+  res.status(202).json({
+    message:
+      "3D model is being generated, you will be notified once it's ready.",
+  });
+
+  // 비동기적으로 모델 생성 및 데이터베이스 저장 작업을 수행합니다.
+  try {
+    const response = await axios.post(
+      "https://api.meshy.ai/v2/image-to-3d",
+      {
+        image_url: imgUrl,
+        enable_pbr: true,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.MESHY_KEY}`,
+        },
+      }
+    );
+
+    const resultId = response.data.result;
+    console.log("Generated model ID:", resultId);
+
+    const fetchModelData = async () => {
+      try {
+        const objectData = await checkModelReady(resultId);
+
+        if (objectData) {
+          console.log("3D model fetch response:", objectData);
+
+          // 모델 URL에서 파일을 다운로드하여 로컬 디렉토리에 저장
+          const downloadPromises = Object.entries(objectData.model_urls).map(
+            async ([key, url]) => {
+              const urlObj = new URL(url);
+              const filePath = path.join(
+                __dirname,
+                "downloads",
+                `${resultId}_${key}${path.extname(urlObj.pathname)}`
+              );
+              const relativePath = await downloadFile(urlObj.href, filePath); // URL 전체를 사용하여 다운로드
+              return [key, relativePath];
+            }
+          );
+
+          const downloadedFiles = await Promise.all(downloadPromises);
+          const localModelUrls = Object.fromEntries(downloadedFiles);
+
+          // 데이터베이스에 모델 정보를 저장합니다.
+          conn.execute(
+            `INSERT INTO Models (user_id, prompt, model_urls, thumbnail_url) VALUES (?, ?, ?, ?)`,
+            [
+              userId,
+              prompt,
+              JSON.stringify(localModelUrls),
+              objectData.thumbnail_url,
+            ],
+            (err, results) => {
+              if (err) {
+                console.error("Error inserting model into database:", err);
+                return;
+              }
+              console.log("Model inserted successfully:", results);
+            }
+          );
+          clearInterval(intervalId); // 조건이 충족되면 interval을 중지합니다.
+        } else {
+          console.log("Model URLs not ready yet. Retrying in 30 seconds...");
+        }
+      } catch (error) {
+        console.error("Error fetching 3D model data:", error.message);
+        if (error.response) {
+          console.error("Fetch response data:", error.response.data);
+        }
+      }
+    };
+
+    const intervalId = setInterval(fetchModelData, 30000); // 30초 간격으로 결과를 조회합니다.
+  } catch (error) {
+    console.error("Error creating 3D model:", error.message);
+    if (error.response) {
+      console.error("Creation response data:", error.response.data);
+    }
+  }
+});
+
 // 로컬 디렉토리의 파일을 제공하는 라우트 설정
 app.use("/downloads", express.static(path.join(__dirname, "downloads")));
 
