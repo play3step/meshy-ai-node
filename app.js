@@ -8,10 +8,22 @@ require("dotenv").config();
 const app = express();
 const PORT = 8000;
 const conn = require("./db");
+const upload = require("./s3");
 
 app.use(cors());
 app.use(express.json());
 
+app.post("/upload", upload.single("file"), (req, res) => {
+  try {
+    res.json({
+      message: "파일 업로드 성공",
+      fileUrl: req.file.location, // S3에 저장된 파일의 URL
+    });
+  } catch (error) {
+    console.error("파일 업로드 중 오류 발생:", error);
+    res.status(500).json({ error: "파일 업로드 실패" });
+  }
+});
 // 다운로드 폴더 생성
 const downloadDir = path.join(__dirname, "downloads");
 if (!fs.existsSync(downloadDir)) {
