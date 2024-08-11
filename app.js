@@ -24,6 +24,7 @@ app.post("/upload", upload.single("file"), (req, res) => {
     res.status(500).json({ error: "파일 업로드 실패" });
   }
 });
+
 // 다운로드 폴더 생성
 const downloadDir = path.join(__dirname, "downloads");
 if (!fs.existsSync(downloadDir)) {
@@ -56,26 +57,25 @@ const downloadFile = async (url, filePath) => {
   });
 };
 
-const checkModelReady = async (resultId) => {
-  const objectDataResponse = await axios.get(
-    `https://api.meshy.ai/v2/text-to-3d/${resultId}`,
-    {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.MESHY_KEY}`,
-      },
-    }
-  );
+const checkModelReady = async (resultId, type) => {
+  const apiEndpoint =
+    type === "image"
+      ? `https://api.meshy.ai/v1/image-to-3d/${resultId}`
+      : `https://api.meshy.ai/v2/text-to-3d/${resultId}`;
+
+  const objectDataResponse = await axios.get(apiEndpoint, {
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.MESHY_KEY}`,
+    },
+  });
 
   const objectData = objectDataResponse.data;
 
-  // 특정 파일 유형들이 모두 존재하는지 확인합니다.
   if (
-    objectData.model_urls &&
-    objectData.model_urls.glb &&
-    objectData.model_urls.fbx &&
-    objectData.model_urls.usdz &&
-    objectData.model_urls.obj &&
+    objectData.model_urls.glb ||
+    objectData.model_urls.fbx ||
+    objectData.model_urls.obj ||
     objectData.model_urls.mtl
   ) {
     return objectData;
@@ -116,7 +116,7 @@ app.post("/meshy/text-to-3d", async (req, res) => {
 
     const fetchModelData = async () => {
       try {
-        const objectData = await checkModelReady(resultId);
+        const objectData = await checkModelReady(resultId, "text");
 
         if (objectData) {
           console.log("3D model fetch response:", objectData);
@@ -178,7 +178,8 @@ app.post("/meshy/text-to-3d", async (req, res) => {
 
 app.post("/meshy/image-to-3d", async (req, res) => {
   const { imgUrl, userId } = req.body;
-  console.log(`Received request with prompt: ${prompt}`);
+
+  console.log("Sending image URL to AI API:", imgUrl);
 
   // 클라이언트에게 초기 응답을 보냅니다.
   res.status(202).json({
@@ -207,7 +208,7 @@ app.post("/meshy/image-to-3d", async (req, res) => {
 
     const fetchModelData = async () => {
       try {
-        const objectData = await checkModelReady(resultId);
+        const objectData = await checkModelReady(resultId, "image");
 
         if (objectData) {
           console.log("3D model fetch response:", objectData);
